@@ -30,3 +30,90 @@ LEAD(sales,2,0) OVER(ORDER BY Month) AS TwoMonthAheadSales,
 LAG(sales,2,0) OVER(ORDER BY Month) AS TwoMonthAgoSales 
 FROM Sales_Data
 
+
+WITH sales_data AS(
+  SELECT 'ORD001' AS order_id, 'P001' AS product_id, '2024-07' AS month, 1200 AS sales UNION ALL
+  SELECT 'ORD002', 'P001', '2024-08', 1350 UNION ALL
+  SELECT 'ORD003', 'P002', '2024-07', 1500 UNION ALL
+  SELECT 'ORD004', 'P002', '2024-08', 1400 UNION ALL
+  SELECT 'ORD005', 'P003', '2024-07', 1600 UNION ALL
+  SELECT 'ORD006', 'P003', '2024-08', 1600 UNION ALL
+  SELECT 'ORD007', 'P004', '2024-07', 1100 UNION ALL
+  SELECT 'ORD008', 'P004', '2024-08', 1100 UNION ALL
+  SELECT 'ORD009', 'P005', '2024-07', 1000 UNION ALL
+  SELECT 'ORD010', 'P005', '2024-08', 1050 UNION ALL
+  SELECT 'ORD011', 'P001', '2024-09', 1250 UNION ALL
+  SELECT 'ORD012', 'P002', '2024-09', 1380 UNION ALL
+  SELECT 'ORD013', 'P003', '2024-09', 1750 UNION ALL
+  SELECT 'ORD014', 'P004', '2024-09', 1180 UNION ALL
+  SELECT 'ORD015', 'P005', '2024-09', 980 UNION ALL
+  SELECT 'ORD016', 'P001', '2024-10', 1300 UNION ALL
+  SELECT 'ORD017', 'P002', '2024-10', 1420 UNION ALL
+  SELECT 'ORD018', 'P003', '2024-10', 1800 UNION ALL
+  SELECT 'ORD019', 'P004', '2024-10', 1200 UNION ALL
+  SELECT 'ORD019', 'P004', '2024-10', 1000 UNION ALL
+  SELECT 'ORD020', 'P005', '2024-10', 1100
+)
+SELECT 
+MONTH,
+
+----------------------------------------------------------------------------
+LAG(sales) OVER(ORDER BY Month) AS PreviousMonthSales,
+CONCAT(ROUND((LAG(sales) OVER(ORDER BY Month) - sales)/sales,2),'%') AS MoM_pct_previous_month,
+-------------------------------------------------------------------------------
+sales,
+-----------------------------------------------------------------------------
+LEAD(sales) OVER(ORDER BY Month) AS NextMonthSales,
+CONCAT(ROUND((LEAD(sales) OVER(ORDER BY Month) - sales)/sales,2),'%') AS MoM_pct_next_month,
+----------------------------------------------------------------------------
+LEAD(sales,2,0) OVER(ORDER BY Month) AS TwoMonthAheadSales, 
+LAG(sales,2,0) OVER(ORDER BY Month) AS TwoMonthAgoSales 
+FROM Sales_Data
+
+
+------ IN ORDER TO ANALYZE THE CUSTOMER LOYALITY
+------ RANK CUSTOMERS BASED ON THE AVERAGE DAYS BETWEEN THEIR ORDERS
+
+WITH customer_orders AS (
+ -- Customer C001
+  SELECT 'ORD001' AS order_id, 'C001' AS customer_id, DATE '2024-01-01' AS order_date UNION ALL
+  SELECT 'ORD002', 'C001', DATE '2024-01-15' UNION ALL
+  SELECT 'ORD003', 'C001', DATE '2024-02-01' UNION ALL
+  SELECT 'ORD004', 'C001', DATE '2024-02-20' UNION ALL
+
+  -- Customer C002
+  SELECT 'ORD005', 'C002', DATE '2024-01-03' UNION ALL
+  SELECT 'ORD006', 'C002', DATE '2024-01-25' UNION ALL
+  SELECT 'ORD007', 'C002', DATE '2024-03-01' UNION ALL
+  SELECT 'ORD008', 'C002', DATE '2024-03-20' UNION ALL
+
+  -- Customer C003
+  SELECT 'ORD009', 'C003', DATE '2024-01-05' UNION ALL
+  SELECT 'ORD010', 'C003', DATE '2024-01-06' UNION ALL
+  SELECT 'ORD011', 'C003', DATE '2024-01-07' UNION ALL
+  SELECT 'ORD012', 'C003', DATE '2024-01-09' UNION ALL
+
+  -- Customer C004
+  SELECT 'ORD013', 'C004', DATE '2024-01-10' UNION ALL
+  SELECT 'ORD014', 'C004', DATE '2024-02-01' UNION ALL
+  SELECT 'ORD015', 'C004', DATE '2024-03-10' UNION ALL
+  SELECT 'ORD016', 'C004', DATE '2024-04-15' UNION ALL
+
+  -- Customer C005
+  SELECT 'ORD017', 'C005', DATE '2024-01-12' UNION ALL
+  SELECT 'ORD018', 'C005', DATE '2024-01-20' UNION ALL
+  SELECT 'ORD019', 'C005', DATE '2024-02-01' UNION ALL
+  SELECT 'ORD020', 'C005', DATE '2024-02-15'
+)
+SELECT 
+  Customer_id, 
+  ROUND(AVG(DaysUntilNextOrder),0) AS AvgDaysUntilNextOrder,
+  RANk() OVER(ORDER BY ROUND(AVG(DaysUntilNextOrder),0)) AS Customer_ranks
+FROM
+(
+  SELECT * 
+  ,LEAD(order_date) OVER(PARTITION BY customer_id ORDER BY order_date) as NextOrderDate 
+  ,DATE_DIFF(LEAD(order_date) OVER(PARTITION BY customer_id ORDER BY order_date),order_date,DAY)AS DaysUntilNextOrder
+  FROM customer_orders
+)
+GROUP BY 1
